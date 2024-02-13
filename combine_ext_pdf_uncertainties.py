@@ -64,11 +64,8 @@ def reweight(h_nom, h_rw):
         
     return h_new
 
-##sys_names_Sherpa = ["MUR1_MUF1_PDF13000","MUR1_MUF1_PDF25300"]
-sys_names_Sherpa = [
-"MUR1.0_MUF1.0_PDF13100",
-"MUR1.0_MUF1.0_PDF25200"
-]
+sys_names_Sherpa = ["MUR1_MUF1_PDF13000","MUR1_MUF1_PDF25300"]
+##sys_names_Sherpa = ["MUR1.0_MUF1.0_PDF13100","MUR1.0_MUF1.0_PDF25200"]
 
 #--------------------------
 # User configuration
@@ -88,25 +85,28 @@ labels = ["SysTheoryPDF_Z","SysTheoryPDF_W"] # each sample comes with its  corre
 uncertainty_sets = [sys_names_Sherpa,sys_names_Sherpa] # each sample comes with its  corresponding uncertainty array
 if int(args.reg) == 0:
         #Resolved
-        regions= ["CRTop", "CRTop_Tight", "CRVjet", "CRVjet_Tight", "SRVBS","SRVBS_Tight", "SRVBS_Tight_HMlvjj1500", "SRVBS_Tight_LMlvjj1500"]
-        prefix = ["0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv"] #for each region you need to add the corresponding prefix 
+#        regions= ["CRTop", "CRTop_Tight", "CRVjet", "CRVjet_Tight", "SRVBS","SRVBS_Tight", "SRVBS_Tight_HMlvjj1500", "SRVBS_Tight_LMlvjj1500"]
+        regions= ["CRVjet_Tight", "SRVBS","SRVBS_Tight"]
+        prefix = ["0ptag2pjet_0ptv" for x in regions] #for each region you need to add the corresponding prefix 
         variables = ["DNN","RNN","tagMjj","MVV"]#,"MFullSystem" ] #variables you want to scan
 elif int(args.reg) == 1:
         # Merged 
-        regions= ["CRTop_HP", "CRTop_LP", "CRVjet_Merged", "SRVBS_HP","SRVBS_LP", "SRVBS_HP_HMlvJ1500", "SRVBS_HP_LMlvJ1500", "SRVBS_LP_HMlvJ1500", "SRVBS_LP_LMlvJ1500", ]
-        prefix = ["0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv", "0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv", "0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv"]
+#        regions= ["CRTop_HP", "CRTop_LP", "CRVjet_Merged", "SRVBS_HP","SRVBS_LP", "SRVBS_HP_HMlvJ1500", "SRVBS_HP_LMlvJ1500", "SRVBS_LP_HMlvJ1500", "SRVBS_LP_LMlvJ1500", ]
+        regions= ["CRTop_HP", "CRTop_LP", "CRVjet_Merged", "SRVBS_HP","SRVBS_LP"]
+        prefix = ["0ptag1pfat0pjet_0ptv" for x in regions]
         variables = ["DNN","RNN","tagMjj","MVV"] #,"MFullSystem"]
 else:
         print("Invalid regime to scan")
 
-x_min = [0,400,400]
-x_max = [1,4000,4000]
-rebin = [3,30,30]
+x_min = [0,0,400,400]
+x_max = [1,1,4000,4000]
+rebin = [10,10,4,4]
 
 
 
-doRebin = False
-doNorm = False
+doRebin = True
+doNorm = True
+##doNorm = False
 doConPlots= True
 
 sample_iter=0
@@ -257,7 +257,7 @@ for sample in samples:
                 h_new_d.SetLineWidth(3)
                 h_new.Draw("E0 same")
                 hist_nom.Draw("E0 same")
-                #h_new_d.Draw("E0 same")
+                h_new_d.Draw("E0 same")
 
                 h_new.SetLineColor(kOrange+2)
                 h_new_d.SetLineColor(kOrange+2)
@@ -270,7 +270,7 @@ for sample in samples:
                 leg.SetTextSize(0.04)
                 leg.AddEntry(hist_nom,"Nominal","lep")
                 leg.AddEntry(h_new,"Theory PDF - Up","l")
-                #leg.AddEntry(h_new_d,"Theory PDF - Down","l")
+                leg.AddEntry(h_new_d,"Theory PDF - Down","l")
                 leg.Draw()
                 
                 # Ratio 
@@ -289,17 +289,19 @@ for sample in samples:
                 h_ratio.SetLineWidth(3)
                 h_ratio_d.SetLineWidth(3)
                 h_ratio.Draw("hist")
-                #h_ratio_d.Draw("hist same")
+                h_ratio_d.Draw("hist same")
                 h_new_d.SetLineColor(kOrange+2)
                 h_ratio.GetYaxis().SetRangeUser(0.9,1.1)
                 h_ratio.GetXaxis().SetTitle(variables[var_iter])
                 canv.Draw()
                 if doNorm:
                     outputname = pdfdir+"/"+out_keyName+"_Norm.pdf"
+                    outputname2 = pdfdir+"/"+out_keyName+"_Norm.png"
                 else:
                     outputname =  pdfdir+"/"+out_keyName+".pdf"
+                    outputname2 =  pdfdir+"/"+out_keyName+".png"
                 canv.SaveAs(str(outputname))
-
+                canv.SaveAs(str(outputname2))
 
             region_iter+=1 
         var_iter+=1
