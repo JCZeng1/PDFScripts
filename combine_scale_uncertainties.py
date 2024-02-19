@@ -3,7 +3,7 @@ import numpy as np
 from array import array
 #from optparse import OptionParser
 import argparse
-from ROOT import TH2F,TKDE,kTRUE, TCanvas,TFile, TCanvas, TStyle, TAxis, gStyle, TColor, TPad, TH1F, kBlue,kRed,kSpring,kOrange,kBlack,kGray,kCyan, kViolet, kGreen, gROOT, TLatex, TLine, TF1,TH1D, TGraphErrors, TAxis, kFullCircle, kFALSE, TLegend,kAzure, TGraph
+from ROOT import TH2F,TKDE, TCanvas,TFile, TCanvas, TStyle, TAxis, gStyle, TColor, TPad, TH1F, kBlue,kRed,kSpring,kBlack,kGray,kCyan,kOrange, kViolet, kGreen, gROOT, TLatex, TLine, TF1,TH1D, TGraphErrors, TAxis, kFullCircle, kFALSE,kTRUE, TLegend,kAzure, TGraph
 from math import fabs
 import glob
 import math
@@ -19,6 +19,29 @@ args = parser.parse_args()
 
 
 # Some functions
+# from tobias 
+##def reject_outliers(data, nom, m = 1.):
+##    size_init = len(data)
+##    for i in data:
+##        d = abs(i/nom) if nom else 0;
+##        if (d > m):
+##            data.remove(i)
+##    size_final = len(data)
+##    if size_final < size_init: print('removed', size_init - size_final, '/' , size_init, 'outliers')
+##    return data
+
+def reject_outliers(data, m = 100.):
+    size_init = len(data)
+    data = np.array(data)
+    d = np.abs(data - np.median(data))
+    mdev = np.median(d)
+    s = d/mdev if mdev else 0.
+    data = data[s<m].flatten()
+    data = data.tolist()
+    size_final = len(data)
+    if size_final < size_init: print('removed', size_init - size_final, '/' , size_init, 'outliers')
+    return data
+
 def getNormhist(hist):
     h_temp= hist.Clone()
     norm= 1/h_temp.Integral(0,h_temp.GetNbinsX()+1) #TH1::Integral returns the integral of bins in the bin range (default(1,Nbins), to include the Under/Overflow, use h.Integral(0,Nbins+1)
@@ -46,68 +69,125 @@ def getDataMCRatio(h_data,h_MC):
     pass
     return h_comp;
 
-def reweight(h_nom, h_rw):
-    h_new = h_rw.Clone()
-    h_new.Reset()
-    
-    ratio = getDataMCRatio(h_nom,h_rw)
-    #print(ratio.GetBinContent(1), ratio.GetMean())
-    ratio.Fit("pol0","Q")
-    weight = ratio.GetFunction("pol0").GetParameter(0)
-    #print("fit result weight:",weight)
-    arr_val = []
-    for bin_x in range(0,h_rw.GetNbinsX()+1):
-        con = h_rw.GetBinContent(bin_x)*weight
-        err = h_rw.GetBinError(bin_x)
-        h_new.SetBinContent(bin_x,con)
-        h_new.SetBinError(bin_x,err)
-        
-    return h_new
+sys_names_Sherpa_scale = ["MURMUF__1down",
+"MUR__1down",
+"MUF__1down",
+"MUF__1up", 
+"MUR__1up",
+"MURMUF__1up",
+]
+sys_names_Top_scale = [
+"MUR__1up",
+"MUR__1down",
+#"MURp25__1up",
+#"MURp25__1down",
+#"MURp50__1up",
+#"MURp50__1down",
+#"MURp75__1up",
+#"MURp75__1down",
+#"RadLo",
+#"RadHiPrime",
+]
+sys_names_stop_scale = [
+"MUR__1up",
+"MUR__1down",
+#"RadLo",
+#"RadHi",
+]
+# all possible choices
+sys_names_signal_scale = [
+"MUR=2.0 MUF=2.0",
+"MUR=2.0 MUF=2.0 dyn_scale_choice=HT",
+"MUR=2.0 MUF=0.5 dyn_scale_choice=sum pt", 
+"MUR=2.0 MUF=0.5 dyn_scale_choice=HT", 
+"MUR=2.0 MUF=2.0 dyn_scale_choice=sum pt",
+"MUR=2.0 MUF=2.0 dyn_scale_choice=sqrts", 
+"MUR=2.0 dyn_scale_choice=sum pt",
+"MUR=2.0 MUF=0.5",
+"MUR=2.0 dyn_scale_choice=sqrts",
+"MUR=2.0", 
+"MUR=0.5 MUF=2.0 dyn_scale_choice=sum pt", 
+"MUR=0.5 MUF=0.5 dyn_scale_choice=sqrts",
+"MUR=0.5 MUF=2.0 dyn_scale_choice=HT", 
+"MUR=0.5 MUF=2.0 dyn_scale_choice=sqrts", 
+"MUR=0.5 dyn_scale_choice=HT", 
+"MUR=0.5 MUF=0.5", 
+"MUR=0.5 dyn_scale_choice=sqrts",
+"MUR=0.5 dyn_scale_choice=sum pt",
+"MUR=0.5",
+"MUR=0.5 MUF=0.5 dyn_scale_choice=sum pt",
+"MUF=2.0 dyn_scale_choice=HT", 
+"MUF=2.0 dyn_scale_choice=sqrts",
+"MUF=2.0",
+"MUF=2.0 dyn_scale_choice=sum pt", 
+"MUF=0.5 dyn_scale_choice=HT", 
+"MUF=0.5 dyn_scale_choice=sum pt",
+"MUF=0.5 dyn_scale_choice=sqrts", 
+"MUF=0.5",
+"dyn_scale_choice=HT",
+"dyn_scale_choice=sum pt", 
+"dyn_scale_choice=sqrts"
+]
 
-##sys_names_Sherpa = ["MUR1_MUF1_PDF13000","MUR1_MUF1_PDF25300"]
-sys_names_Sherpa = ["MUR1.0_MUF1.0_PDF13100","MUR1.0_MUF1.0_PDF25200"]
+# for now we use default option
+sys_names_signal_scale_nominal = [
+"MUR=2.0 MUF=2.0", #{2,2}
+#"MUR=2.0 MUF=0.5", #{2,0.5} off-diagonal not recommended 
+"MUR=2.0", #{2,1}
+"MUR=0.5 MUF=0.5",#{0.5,0.5}
+"MUR=0.5",#{0.5,1}
+"MUF=2.0",#{1,2}
+"MUF=0.5"#,#{1,0.5}
+#"dyn_scale_choice=HT",
+#"dyn_scale_choice=sum pt",
+#"dyn_scale_choice=sqrts"
+]
+
 
 #--------------------------
 # User configuration
 #--------------------------------------------------------
 filename= str(args.dir) #"/eos/user/a/akotsoke/CONDOR_output/merged/2lep.13TeV.mc16ade.ALL.Nominal.r33_12_PF_MjjRW_TagSF_looseTrain_afterFE_PDFweights.root"
-
-#filenameSave = "/eos/home-y/yfhan/forVBSPublic/1lepInputs/TEST.VBS.1lep_local.13TeV.mc16ade.10jun22.root"
-filenameSave = "PDFSyst.root"
 f=r.TFile(filename,"UPDATE")
 f_sys = f.GetDirectory("Systematics/");
+#filenameSave = "/eos/home-y/yfhan/forVBSPublic/1lepInputs/TEST.VBS.1lep_local.13TeV.mc16ade.10jun22.root"
+#filenameSave = "/eos/home-y/yfhan/forVBSPublic/1lepInputs/Histograms.VBS.0lep_local.13TeV.mc16ade.22mar22.root"
+filenameSave = "PDFSyst.root"
 f2=r.TFile(filenameSave,"UPDATE")
 f2_sys = f2.mkdir("Systematics/");
 
 # sample and associated pdf uncertainties array
-samples = ["Z","W" ] #["Z","EW62LepFid-1","W"]
-labels = ["SysTheoryPDF_Z","SysTheoryPDF_W"] # each sample comes with its  corresponding ucertainty label
-uncertainty_sets = [sys_names_Sherpa,sys_names_Sherpa] # each sample comes with its  corresponding uncertainty array
+samples = ["EW6lvqqFidA", "EW6lvqqFidC", "EW6lvqqFidD", "W","Z", "WZ", "WW", "ZZ", "ttbar", "stopWt","stops","stopt"]
+labels = ["SysTheoryQCD_VBS","SysTheoryQCD_VBS","SysTheoryQCD_VBS","SysTheoryQCD_W","SysTheoryQCD_Z","SysTheoryQCD_VV","SysTheoryQCD_VV","SysTheoryQCD_VV","SysTheoryQCD_ttbar","SysTheoryQCD_stop","SysTheoryQCD_stop","SysTheoryQCD_stop"] # each sample comes with its  corresponding ucertainty label
+uncertainty_sets = [
+sys_names_signal_scale_nominal,sys_names_signal_scale_nominal,sys_names_signal_scale_nominal,
+sys_names_Sherpa_scale,sys_names_Sherpa_scale,sys_names_Sherpa_scale,sys_names_Sherpa_scale,sys_names_Sherpa_scale,
+sys_names_Top_scale,sys_names_stop_scale,sys_names_stop_scale,sys_names_stop_scale
+]
+#samples = ["EW6lvqqFidA", "EW6lvqqFidC", "EW6lvqqFidD"]
+#labels = ["SysTheoryQCD_VBS","SysTheoryQCD_VBS","SysTheoryQCD_VBS"] # each sample comes with its  corresponding ucertainty label
+#uncertainty_sets = [
+#sys_names_signal_scale_nominal,sys_names_signal_scale_nominal,sys_names_signal_scale_nominal
+#]
 if int(args.reg) == 0:
         #Resolved
-#        regions= ["CRTop", "CRTop_Tight", "CRVjet", "CRVjet_Tight", "SRVBS","SRVBS_Tight", "SRVBS_Tight_HMlvjj1500", "SRVBS_Tight_LMlvjj1500"]
-        regions= ["CRVjet_Tight", "SRVBS","SRVBS_Tight"]
-        prefix = ["0ptag2pjet_0ptv" for x in regions] #for each region you need to add the corresponding prefix 
+        regions= ["CRTop", "CRTop_Tight", "CRVjet", "CRVjet_Tight", "SRVBS","SRVBS_Tight", "SRVBS_Tight_HMlvjj1500", "SRVBS_Tight_LMlvjj1500"]
+        prefix = ["0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv"] #for each region you need to add the corresponding prefix 
         variables = ["DNN","RNN","tagMjj","MVV"]#,"MFullSystem" ] #variables you want to scan
 elif int(args.reg) == 1:
         # Merged 
-#        regions= ["CRTop_HP", "CRTop_LP", "CRVjet_Merged", "SRVBS_HP","SRVBS_LP", "SRVBS_HP_HMlvJ1500", "SRVBS_HP_LMlvJ1500", "SRVBS_LP_HMlvJ1500", "SRVBS_LP_LMlvJ1500", ]
-        regions= ["CRTop_HP", "CRTop_LP", "CRVjet_Merged", "SRVBS_HP","SRVBS_LP"]
-        prefix = ["0ptag1pfat0pjet_0ptv" for x in regions]
+        regions= ["CRTop_HP", "CRTop_LP", "CRVjet_Merged", "SRVBS_HP","SRVBS_LP", "SRVBS_HP_HMlvJ1500", "SRVBS_HP_LMlvJ1500", "SRVBS_LP_HMlvJ1500", "SRVBS_LP_LMlvJ1500", ]
+        prefix = ["0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv", "0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv", "0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv"]
         variables = ["DNN","RNN","tagMjj","MVV"] #,"MFullSystem"]
 else:
         print("Invalid regime to scan")
+x_min = [0,400,400]
+x_max = [1,4000,4000]
+rebin = [3,30,30]
 
-x_min = [0,0,400,400]
-x_max = [1,1,4000,4000]
-rebin = [10,10,4,4]
-
-
-
-doRebin = True
-doNorm = True
-##doNorm = False
-doConPlots= True
+doRebin = False
+doNorm = False
+doConPlots= False
 
 sample_iter=0
 for sample in samples:
@@ -120,27 +200,24 @@ for sample in samples:
             print("Get Nominal hist for: ",keyName)
             f.cd()
             hist_nom = f.Get(keyName)
-            if ("TObject" in str(type(hist_nom))) or (hist_nom.Integral()<=0) :
+            if "TObject" in str(type(hist_nom)) or hist_nom == None:
                 print(keyName, " hist doesn't exist")
                 continue
-            if (hist_nom == None):
-                continue
-
+            
             h_new = hist_nom.Clone()
             h_new.Reset()
-
 
             h_new_d = hist_nom.Clone()
             h_new_d.Reset()
 
             f_sys.cd()
-            for binx in range(1,hist_nom.GetNbinsX()+1):
+            for binx in range(0,hist_nom.GetNbinsX()+1):
                 arr_bin_con = []
                 arr_bin_abs = []
                 binCenter = hist_nom.GetBinCenter(binx)
                 con =  hist_nom.GetBinContent(binx)
                 #print(binCenter,con)
-                
+               
                 # loop over variations
                 for j in range(len(uncertainty_sets[sample_iter])):
                     uncertainty_set = uncertainty_sets[sample_iter]
@@ -150,42 +227,39 @@ for sample in samples:
                     hist_var = f_sys.Get(keyName) 
                     if "TObject" in str(type(hist_var)) :
                         print(keyName, " hist doesn't exist")
-                        continue  # Skip to the next iteration of the loop
-
-                    ## Reweight problematic pdf sets
-                    #if ("PDF269000" in keyName) or ("PDF270000" in keyName):
-                    #    #print("Reweighting", keyName)
-                    #    hist_var = reweight(hist_nom, hist_var)
+                        continue
                         
                     con_var = hist_var.GetBinContent(binx)
                     abs_diff = math.fabs(con_var - con)
                     diff = con_var - con
                     arr_bin_abs.append(abs_diff)
                     arr_bin_con.append(diff)
-                    
-                
+
+                # tofitsch: remove outliers
+##                arr_bin_con.append(0)
+                arr_bin_con = reject_outliers(arr_bin_con)
+                arr_bin_con = np.array(arr_bin_con)
+
                 # take maximum
                 #arr_bin_abs = np.array(arr_bin_abs)
                 #print(arr_bin_con)
 
                 # take maximum difference for up uncertainty
-                max_v =  np.amax(arr_bin_con)
+                max_v =  np.amax(arr_bin_con) 
                 index = np.argmax(arr_bin_con)
-                #print("up",index,max_v,arr_bin_con[index])
+                #print(index,max_v,arr_bin_con[index])
 
                 # take minimum difference for down uncertainty
                 min_v =  np.amin(arr_bin_con)
                 index_min = np.argmin(arr_bin_con)
-                #print("down",index,min_v,arr_bin_con[index_min],con+arr_bin_con[index_min])
-                if math.isnan(arr_bin_con[index]):
-                    arr_bin_con[index] = 0
-                if math.isnan(arr_bin_con[index_min]):
-                    arr_bin_con[index_min] = 0
+                #print(index,min_v,arr_bin_con[index_min],con+arr_bin_con[index_min])
 
-
-                # set up and down variation values
+                # but append real value (positive or negative)
                 h_new.SetBinContent(binx,con+arr_bin_con[index])
                 h_new_d.SetBinContent(binx,con+arr_bin_con[index_min])
+
+##                h_new.SetBinContent(binx,con+max_v)
+##                h_new_d.SetBinContent(binx,con+min_v)
                 #h_new.SetBinError(binx,std)
             
             # write new combined variation hist to output file
@@ -195,15 +269,15 @@ for sample in samples:
             out_keyName=sample+"_"+prefix[region_iter]+"_"+region+"_"+out_variation+"__1up"
             out_keyName_d=sample+"_"+prefix[region_iter]+"_"+region+"_"+out_variation+"__1down"
             print("Writing: ", out_keyName)
-            ##f_sys.WriteObject(h_new,out_keyName)
-            ##f_sys.WriteObject(h_new_d,out_keyName_d)
+            #f_sys.WriteObject(h_new,out_keyName)
+            #f_sys.WriteObject(h_new_d,out_keyName_d)
 
             # or use this if need to overwrite old hists
             h_new.Write(out_keyName,r.TObject.kOverwrite)
-            ##h_new_d.Write(out_keyName_d,r.TObject.kOverwrite)
-            
+            h_new_d.Write(out_keyName_d,r.TObject.kOverwrite)
+
             if doConPlots:
-                pdfdir = "./ControlPlots/TheoryPDF/"
+                pdfdir = "./ControlPlots/QCDScale/"
                 if not os.path.exists(pdfdir) :
                     os.makedirs(pdfdir)
         
@@ -269,8 +343,8 @@ for sample in samples:
                 leg.SetFillStyle(0)
                 leg.SetTextSize(0.04)
                 leg.AddEntry(hist_nom,"Nominal","lep")
-                leg.AddEntry(h_new,"Theory PDF - Up","l")
-                leg.AddEntry(h_new_d,"Theory PDF - Down","l")
+                leg.AddEntry(h_new,"QCD Scale - Up","l")
+                leg.AddEntry(h_new_d,"QCD Scale - Down","l")
                 leg.Draw()
                 
                 # Ratio 
@@ -285,25 +359,22 @@ for sample in samples:
                 h_ratio.GetXaxis().SetTitleSize(0.14);
                 h_ratio.GetXaxis().SetTitleOffset(1.1);
                 h_ratio.GetXaxis().SetLabelSize(0.12);
-                h_ratio.SetStats(0)
                 h_ratio.SetLineWidth(3)
+                h_ratio_d.SetLineColor(kOrange+2)
                 h_ratio_d.SetLineWidth(3)
+                h_ratio.SetStats(0)
                 h_ratio.Draw("hist")
                 h_ratio_d.Draw("hist same")
-                h_new_d.SetLineColor(kOrange+2)
-                h_ratio.GetYaxis().SetRangeUser(0.9,1.1)
+
+                h_ratio.GetYaxis().SetRangeUser(0.5,1.6)
                 h_ratio.GetXaxis().SetTitle(variables[var_iter])
                 canv.Draw()
                 if doNorm:
-                    outputname = pdfdir+"/"+out_keyName+"_Norm.pdf"
-                    outputname2 = pdfdir+"/"+out_keyName+"_Norm.png"
+                    outputname = pdfdir+"/"+out_keyName+"_Norm.png"
                 else:
-                    outputname =  pdfdir+"/"+out_keyName+".pdf"
-                    outputname2 =  pdfdir+"/"+out_keyName+".png"
+                    outputname =  pdfdir+"/"+out_keyName+".png"
                 canv.SaveAs(str(outputname))
-                canv.SaveAs(str(outputname2))
-
-            region_iter+=1 
+            region_iter+=1
         var_iter+=1
     sample_iter+=1
 

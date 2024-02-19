@@ -41,6 +41,10 @@ def reject_outliers(data, m = 100.):
     data = data.tolist()
     size_final = len(data)
     if size_final < size_init: print('removed', size_init - size_final, '/' , size_init, 'outliers')
+##    if size_final < size_init:
+##        print('removed', size_init - size_final, '/', size_init, 'outliers')
+##    else:
+##        print('No outliers were removed.')
     return data
 
 
@@ -523,10 +527,10 @@ sys_as_Sherpa = [ "MUR1_MUF1_PDF269000","MUR1_MUF1_PDF270000"] #269000 ->as_0117
 # User configuration
 #--------------------------------------------------------
 filename= str(args.dir) #"/eos/user/a/akotsoke/CONDOR_output/merged/2lep.13TeV.mc16ade.ALL.Nominal.r33_12_PF_MjjRW_TagSF_looseTrain_afterFE_PDFweights.root"
+filenameSave = "PDFSyst.root"
 f=r.TFile(filename,"UPDATE")
 f_sys = f.GetDirectory("Systematics/");
-#filenameSave = "/eos/home-y/yfhan/forVBSPublic/1lepInputs/Histograms.VBS.1lep_local.13TeV.mc16ade.10jun22.root"
-filenameSave = "PDFSyst.root"
+#filenameSave = "PDFSyst.root"
 f2=r.TFile(filenameSave,"UPDATE")
 f2_sys = f2.mkdir("Systematics/");
 
@@ -538,30 +542,29 @@ sys_names_signal,sys_names_signal,sys_names_signal,
 sys_names_Sherpa,sys_names_Sherpa,sys_names_Sherpa,sys_names_Sherpa,sys_names_Sherpa,
 sys_names_top,sys_names_stop,sys_names_stop,sys_names_stop,
 ]
-#samples = ["EW6lvqqFidA", "EW6lvqqFidC", "EW6lvqqFidD"]
-#labels = ["SysTheoryPDF_NNPDF_VBS","SysTheoryPDF_NNPDF_VBS","SysTheoryPDF_NNPDF_VBS"]
-#uncertainty_sets = [sys_names_signal,sys_names_signal,sys_names_signal]
 
 if int(args.reg) == 0:
         #Resolved
-        regions= ["CRTop_Tight", "CRVjet", "CRVjet_Tight", "SRVBS","SRVBS_Tight", "SRVBS_Tight_HMlvjj1500", "SRVBS_Tight_LMlvjj1500"]
-        prefix = ["0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv", "0ptag2pjet_0ptv"] #for each region you need to add the corresponding prefix 
+        regions= ["CRTop_Tight", "CRVjet", "CRVjet_Tight", "SRVBS","SRVBS_Tight",]# "SRVBS_Tight_HMlvjj1500", "SRVBS_Tight_LMlvjj1500"]
+        prefix = ["0ptag2pjet_0ptv" for _ in regions]#for each region you need to add the corresponding prefix 
         variables = ["DNN","RNN","tagMjj","MVV"]#,"MFullSystem" ] #variables you want to scan
 elif int(args.reg) == 1:
         # Merged 
-        regions= ["CRTop_HP", "CRTop_LP", "CRVjet_Merged", "SRVBS_HP","SRVBS_LP", "SRVBS_HP_HMlvJ1500", "SRVBS_HP_LMlvJ1500", "SRVBS_LP_HMlvJ1500", "SRVBS_LP_LMlvJ1500", ]
-        prefix = ["0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv", "0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv", "0ptag1pfat0pjet_0ptv","0ptag1pfat0pjet_0ptv"]
+        regions= ["CRTop_HP", "CRTop_LP", "CRVjet_Merged", "SRVBS_HP","SRVBS_LP",]# "SRVBS_HP_HMlvJ1500", "SRVBS_HP_LMlvJ1500", "SRVBS_LP_HMlvJ1500", "SRVBS_LP_LMlvJ1500", ]
+        prefix = ["0ptag1pfat0pjet_0ptv" for _ in regions]
         variables = ["DNN","RNN","tagMjj","MVV"] #,"MFullSystem"]
 else:
         print("Invalid regime to scan")
 
 
-x_min = [0,400]
-x_max = [1,4000]
-rebin = [3,30]
+x_min = [0,0,400,400]
+x_max = [1,1,4000,4000]
+rebin = [10,10,4,4]
 
+##doConPlots= True
 doConPlots= False
-doRebin = False
+doRebin = True
+##doNorm = True
 doNorm = False
 #------------------------------------------------------------------------------------
 
@@ -638,6 +641,7 @@ for sample in samples:
 
                 # h_new_up.SetBinContent(binx,con+std)
                 # h_new_down.SetBinContent(binx,con-std)
+                # print(binx, con + combined_unc)
                 h_new_up.SetBinContent(binx,con+combined_unc)
                 h_new_down.SetBinContent(binx,con-combined_unc)
 
@@ -665,7 +669,7 @@ for sample in samples:
         
                 canv=TCanvas("","",60,60,600,600)
                 P_1 = TPad("Hists","", 0, 0.35, 0.94, 1);
-                P_2 =TPad("Data/Bgd","", 0, 0.1, 0.94, 0.35); #xmin,ymin,xmax,ymax
+                P_2 =TPad("Data/Bgd","", 0, 0.05, 0.94, 0.35); #xmin,ymin,xmax,ymax
 
                 P_1.Draw();
                 P_2.Draw();
@@ -749,9 +753,9 @@ for sample in samples:
                 h_ratio.GetXaxis().SetTitle(variables[var_iter])
                 canv.Draw()
                 if doNorm:
-                    outputname = pdfdir+"/"+out_keyName_up+"_Norm.png"
+                    outputname = pdfdir+"/"+out_keyName_up+"_Norm.pdf"
                 else:
-                    outputname = pdfdir+"/"+out_keyName_up+".png"
+                    outputname = pdfdir+"/"+out_keyName_up+".pdf"
                 #canv.SaveAs(str(outputname)+".png")
                 canv.SaveAs(str(outputname))
                 
